@@ -1,0 +1,37 @@
+[Unit]
+Description=HedgeDoc Collaborative Markdown Editor
+After=network-online.target hedgedoc-db.service
+Wants=network-online.target
+Requires=hedgedoc-db.service
+
+[Container]
+Image=quay.io/hedgedoc/hedgedoc:latest
+ContainerName=hedgedoc
+AutoUpdate=registry
+
+# Environment variables
+Environment=CMD_DB_URL=postgres://{{ hedgedoc_db_user }}:{{ hedgedoc_db_password }}@hedgedoc-db:5432/hedgedoc
+Environment=CMD_DOMAIN=docs.{{ domain }}
+Environment=CMD_URL_ADDPORT=false
+Environment=CMD_PROTOCOL_USESSL=true
+Environment=CMD_ALLOW_ANONYMOUS=false
+Environment=CMD_ALLOW_EMAIL_REGISTER=false
+Environment=CMD_SESSION_SECRET={{ hedgedoc_session_secret }}
+Environment=TZ=Asia/Kolkata
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/hedgedoc:/hedgedoc/public/uploads:Z
+
+# Network
+PublishPort=127.0.0.1:3000:3000
+Network=selfhosting.network
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

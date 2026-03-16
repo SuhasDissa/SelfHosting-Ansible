@@ -1,0 +1,33 @@
+# WireGuard Server Configuration
+# This server allows clients to connect and access services
+
+[Interface]
+# Server's private key
+PrivateKey = {{ wireguard_server_private_key }}
+
+# Server's VPN IP address
+Address = {{ wireguard_server_address }}
+
+# Port to listen on (UDP)
+ListenPort = {{ wireguard_listen_port | default('51820') }}
+
+# Enable packet forwarding and NAT for clients
+PostUp = iptables -A FORWARD -i %i -j ACCEPT
+PostUp = iptables -A FORWARD -o %i -j ACCEPT
+PostUp = iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostUp = iptables -t nat -A POSTROUTING -o ens3 -j MASQUERADE
+
+PreDown = iptables -D FORWARD -i %i -j ACCEPT
+PreDown = iptables -D FORWARD -o %i -j ACCEPT
+PreDown = iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+PreDown = iptables -t nat -D POSTROUTING -o ens3 -j MASQUERADE
+
+# Client peer configurations
+{% for peer in wireguard_peers %}
+[Peer]
+# {{ peer.name }}
+PublicKey = {{ peer.public_key }}
+AllowedIPs = {{ peer.allowed_ips }}
+
+{% endfor %}
+

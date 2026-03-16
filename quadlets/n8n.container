@@ -1,0 +1,34 @@
+[Unit]
+Description=n8n Workflow Automation
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/n8nio/n8n:latest
+ContainerName=n8n
+AutoUpdate=registry
+
+# Environment variables
+Environment=N8N_HOST=0.0.0.0
+Environment=N8N_PORT=5678
+Environment=N8N_PROTOCOL=http
+Environment=WEBHOOK_URL=https://automation.{{ domain }}
+Environment=GENERIC_TIMEZONE=Asia/Colombo
+Environment=TZ=Asia/Colombo
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/n8n:/home/node/.n8n:Z
+
+# Network
+PublishPort=127.0.0.1:5678:5678
+Network=selfhosting.network
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

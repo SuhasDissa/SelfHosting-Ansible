@@ -1,0 +1,54 @@
+---
+- name: Install EPEL repository
+  dnf:
+    name: epel-release
+    state: present
+
+- name: Install base packages
+  dnf:
+    name:
+      - git
+      - vim
+      - curl
+      - wget
+      - unzip
+      - python3
+      - python3-pip
+      - firewalld
+      - rsync
+    state: present
+
+- name: Install optional packages
+  dnf:
+    name:
+      - htop
+      - fail2ban
+    state: present
+  ignore_errors: yes
+
+- name: Set timezone
+  timezone:
+    name: "{{ timezone }}"
+
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Create scripts directory
+  file:
+    path: "{{ scripts_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Create backup directory
+  file:
+    path: "{{ backup_path }}"
+    state: directory
+    mode: '0750'
+
+- name: Enable and start fail2ban
+  systemd:
+    name: fail2ban
+    state: started
+    enabled: yes
+  ignore_errors: yes

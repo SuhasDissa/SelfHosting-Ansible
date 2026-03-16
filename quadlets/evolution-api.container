@@ -1,0 +1,42 @@
+[Unit]
+Description=Evolution API Server
+After=network-online.target nextcloud-db.service
+Wants=network-online.target
+Requires=nextcloud-db.service
+
+[Container]
+Image=docker.io/evoapicloud/evolution-api:latest
+ContainerName=evolution-api
+AutoUpdate=registry
+
+# Environment variables
+Environment=SERVER_HOST=0.0.0.0
+Environment=SERVER_PORT=8080
+# PostgreSQL configuration
+Environment=DATABASE_PROVIDER=postgresql
+Environment=DATABASE_CONNECTION_URI="postgresql://nextcloud:{{ nextcloud_db_password }}@nextcloud-db:5432/nextcloud?schema=evolution"
+Environment=DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+Environment=AUTHENTICATION_TYPE=apikey
+# We define API Keys or let user define them later, here we could use a default or empty.
+Environment="AUTHENTICATION_API_KEY={{ evolution_api_key }}"
+Environment=CONFIG_SESSION_PHONE_VERSION=2.3000.1033964768
+Environment=WEB_VERSION=2.3000.1033964768
+Environment=CACHE_REDIS_ENABLED=false
+Environment=CACHE_LOCAL_ENABLED=true
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/evolution-api:/evolution/instances:Z
+
+# Network
+Network=selfhosting.network
+PublishPort=0.0.0.0:8080:8080
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

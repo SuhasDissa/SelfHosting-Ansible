@@ -1,0 +1,34 @@
+[Unit]
+Description=Transmission BitTorrent Client
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/linuxserver/transmission:latest
+ContainerName=transmission
+AutoUpdate=registry
+
+# Environment variables
+Environment=PUID=1000
+Environment=PGID=1000
+Environment=TZ=Asia/Kolkata
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/transmission-config:/config:Z
+Volume=/var/lib/containers/storage/volumes/transmission-downloads:/downloads:Z
+
+# Network - Web UI and torrent ports
+PublishPort=8082:9091
+
+PublishPort=51413:51413/tcp
+PublishPort=51413:51413/udp
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

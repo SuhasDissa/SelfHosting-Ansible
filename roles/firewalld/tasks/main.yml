@@ -1,0 +1,73 @@
+---
+- name: Ensure firewalld is installed
+  dnf:
+    name: firewalld
+    state: present
+
+- name: Enable and start firewalld
+  systemd:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Allow HTTP traffic
+  firewalld:
+    service: http
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Allow HTTPS traffic
+  firewalld:
+    service: https
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Allow Transmission torrent port (51413 TCP/UDP)
+  firewalld:
+    port: "{{ ports.transmission_torrent }}/tcp"
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Allow Transmission torrent port UDP
+  firewalld:
+    port: "{{ ports.transmission_torrent }}/udp"
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Allow WireGuard VPN port
+  firewalld:
+    port: "{{ wireguard_listen_port | default('51820') }}/udp"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  when: wireguard_enabled | default(false)
+
+- name: Trust WireGuard subnet
+  firewalld:
+    source: "10.200.0.0/24"
+    zone: trusted
+    permanent: yes
+    state: enabled
+    immediate: yes
+  when: wireguard_enabled | default(false)
+
+
+- name: Block direct access to service ports (only allow via Nginx)
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: disabled
+    immediate: yes
+  loop:
+    - "{{ ports.joplin }}"
+    - "{{ ports.transmission_web }}"
+    - "{{ ports.jellyfin }}"
+    - "{{ ports.n8n }}"
+  ignore_errors: yes  # These might not be open yet
+
+- name: Reload firewalld
+  command: firewall-cmd --reload

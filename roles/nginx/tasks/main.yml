@@ -1,0 +1,87 @@
+---
+- name: Install Nginx and Certbot
+  dnf:
+    name:
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+    state: present
+
+- name: Create Nginx sites directory
+  file:
+    path: /etc/nginx/sites-available
+    state: directory
+    mode: '0755'
+
+- name: Create Nginx sites-enabled directory
+  file:
+    path: /etc/nginx/sites-enabled
+    state: directory
+    mode: '0755'
+
+- name: Deploy main Nginx configuration
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    mode: '0644'
+  notify: Reload Nginx
+
+- name: Deploy site configurations
+  template:
+    src: "{{ item.subdomain }}.conf.j2"
+    dest: "/etc/nginx/sites-available/{{ item.subdomain }}.{{ domain }}.conf"
+    mode: '0644'
+  loop: "{{ services | selectattr('enabled') | selectattr('subdomain', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.subdomain }}"
+  notify: Reload Nginx
+
+- name: Enable site configurations
+  file:
+    src: "/etc/nginx/sites-available/{{ item.subdomain }}.{{ domain }}.conf"
+    dest: "/etc/nginx/sites-enabled/{{ item.subdomain }}.{{ domain }}.conf"
+    state: link
+  loop: "{{ services | selectattr('enabled') | selectattr('subdomain', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.subdomain }}"
+  notify: Reload Nginx
+
+- name: Validate Nginx configuration
+  command: nginx -t
+  register: nginx_config_test
+  ignore_errors: yes
+  changed_when: false
+
+- name: Enable and start Nginx
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+  when: nginx_config_test.rc == 0
+
+- name: Display Nginx config error (if any)
+  debug:
+    msg: "Nginx config is invalid. This is normal on first run before SSL certificates are obtained. Will attempt to get certificates and fix in next steps."
+  when: nginx_config_test.rc != 0
+
+- name: Obtain SSL certificates
+  command: >
+    certbot --nginx -d {{ item.subdomain }}.{{ domain }}
+    --non-interactive --agree-tos -m {{ certbot_email }}
+  loop: "{{ services | selectattr('enabled') | selectattr('subdomain', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.subdomain }}"
+  ignore_errors: yes  # Will fail if DNS not set up yet
+  register: certbot_result
+
+- name: Display Certbot results
+  debug:
+    msg: "SSL certificates obtained. If any failed, ensure DNS is correctly configured and run: certbot --nginx -d SUBDOMAIN.{{ domain }}"
+  when: certbot_result is defined
+
+- name: Set up Certbot auto-renewal
+  cron:
+    name: "Certbot renewal"
+    minute: "0"
+    hour: "3"
+    job: "/usr/bin/certbot renew --quiet"

@@ -1,0 +1,31 @@
+[Unit]
+Description=PostgreSQL Database for Joplin Server
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/postgres:16-alpine
+ContainerName=joplin-db
+AutoUpdate=registry
+
+# Environment variables
+Environment="POSTGRES_USER={{ joplin_db_user }}"
+Environment="POSTGRES_PASSWORD={{ joplin_db_password }}"
+Environment="POSTGRES_DB={{ joplin_db_name }}"
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/joplin-db:/var/lib/postgresql/data:Z
+
+# Network
+PublishPort=127.0.0.1:5433:5432
+Network=selfhosting.network
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

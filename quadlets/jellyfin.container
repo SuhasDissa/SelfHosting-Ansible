@@ -1,0 +1,36 @@
+[Unit]
+Description=Jellyfin Media Server
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/jellyfin/jellyfin:latest
+ContainerName=jellyfin
+AutoUpdate=registry
+
+# Environment variables
+Environment=TZ=Asia/Kolkata
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/jellyfin-config:/config:Z
+Volume=/var/lib/containers/storage/volumes/jellyfin-cache:/cache:Z
+Volume=/var/lib/containers/storage/volumes/jellyfin-media:/media:Z
+# Link to Transmission downloads for easy access
+Volume=/var/lib/containers/storage/volumes/transmission-downloads:/downloads:ro
+
+# Network
+PublishPort=127.0.0.1:8096:8096
+
+# Hardware acceleration (if available)
+# Uncomment the next line if you have Intel QuickSync
+# AddDevice=/dev/dri:/dev/dri
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

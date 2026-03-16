@@ -1,0 +1,125 @@
+---
+# Non-sensitive configuration variables
+
+# Timezone
+timezone: Asia/Kolkata
+
+# Service ports (internal)
+ports:
+  joplin: 22300
+  joplin_db: 5433
+  transmission_web: 8082
+  transmission_torrent: 51413
+  jellyfin: 8096
+  nextcloud: 8083
+  nextcloud_db: 5432
+  n8n: 5678
+  evolution_api: 8080
+  hedgedoc: 3000
+
+# Volume paths
+volumes:
+  base: /var/lib/containers/storage/volumes
+  joplin_db: /var/lib/containers/storage/volumes/joplin-db
+  transmission_config: /var/lib/containers/storage/volumes/transmission-config
+  transmission_downloads: /var/lib/containers/storage/volumes/transmission-downloads
+  jellyfin_config: /var/lib/containers/storage/volumes/jellyfin-config
+  jellyfin_cache: /var/lib/containers/storage/volumes/jellyfin-cache
+  jellyfin_media: /var/lib/containers/storage/volumes/jellyfin-media
+  nextcloud: /var/lib/containers/storage/volumes/nextcloud
+  nextcloud_db: /var/lib/containers/storage/volumes/nextcloud-db
+  nextcloud_data: /var/lib/containers/storage/volumes/nextcloud-data
+  n8n: /var/lib/containers/storage/volumes/n8n
+  evolution_api: /var/lib/containers/storage/volumes/evolution-api
+  hedgedoc_db: /var/lib/containers/storage/volumes/hedgedoc-db
+  hedgedoc: /var/lib/containers/storage/volumes/hedgedoc
+
+# Backup path
+backup_path: /var/backups/selfhosting
+
+# Scripts installation path
+scripts_path: /opt/selfhosting
+
+# User/Group IDs for containers
+puid: 1000
+pgid: 1000
+
+# Database settings
+nextcloud_db_name: nextcloud
+nextcloud_db_user: nextcloud
+
+# Nextcloud trusted domains
+nextcloud_trusted_domains:
+  - "cloud.{{ domain }}"
+  - localhost
+
+# Transmission settings
+transmission_webui_port: 9091
+
+# Resource limits (optional)
+container_memory_limit: 2G
+container_cpu_limit: 2
+
+# WireGuard VPN Server configuration
+wireguard_enabled: true
+wireguard_interface: wg0
+wireguard_server_address: 10.200.0.1/24
+wireguard_listen_port: 51820
+wireguard_peers: []  # Define in secrets.yml
+
+# Services — set enabled: false to skip a service entirely
+services:
+  - name: joplin
+    enabled: true
+    quadlets: [joplin-db.container, joplin.container]
+    volumes: [{name: joplin-db}]
+    systemd: [joplin-db.service, joplin.service]
+    health_port: 22300
+    subdomain: notes
+
+  - name: transmission
+    enabled: true
+    quadlets: [transmission.container]
+    volumes: [{name: transmission-config}, {name: transmission-downloads}]
+    systemd: [transmission.service]
+    health_port: 8082
+    subdomain: torrent
+
+  - name: jellyfin
+    enabled: true
+    quadlets: [jellyfin.container]
+    volumes: [{name: jellyfin-config}, {name: jellyfin-cache}, {name: jellyfin-media}]
+    systemd: [jellyfin.service]
+    health_port: 8096
+    subdomain: media
+
+  - name: nextcloud
+    enabled: true
+    quadlets: [nextcloud-db.container, nextcloud.container]
+    volumes: [{name: nextcloud}, {name: nextcloud-db}, {name: nextcloud-data}]
+    systemd: [nextcloud-db.service, nextcloud.service]
+    health_port: 8083
+    subdomain: cloud
+
+  - name: n8n
+    enabled: true
+    quadlets: [n8n.container]
+    volumes: [{name: n8n, owner: "1000"}]
+    systemd: [n8n.service]
+    health_port: 5678
+    subdomain: automation
+
+  - name: hedgedoc
+    enabled: true
+    quadlets: [hedgedoc-db.container, hedgedoc.container]
+    volumes: [{name: hedgedoc-db}, {name: hedgedoc}]
+    systemd: [hedgedoc-db.service, hedgedoc.service]
+    health_port: 3000
+    subdomain: docs
+
+  - name: evolution_api
+    enabled: true
+    quadlets: [evolution-api.container]
+    volumes: [{name: evolution-api}]
+    systemd: [evolution-api.service]
+    health_port: 8080

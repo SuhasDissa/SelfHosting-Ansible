@@ -1,0 +1,34 @@
+[Unit]
+Description=Joplin Server
+After=network-online.target joplin-db.service
+Wants=network-online.target
+Requires=joplin-db.service
+
+[Container]
+Image=docker.io/joplin/server:latest
+ContainerName=joplin
+AutoUpdate=registry
+
+# Environment variables
+Environment=APP_PORT=22300
+Environment=APP_BASE_URL=https://notes.{{ domain }}
+Environment=DB_CLIENT=pg
+Environment=POSTGRES_HOST=joplin-db
+Environment=POSTGRES_PORT=5432
+Environment="POSTGRES_USER={{ joplin_db_user }}"
+Environment="POSTGRES_PASSWORD={{ joplin_db_password }}"
+Environment="POSTGRES_DATABASE={{ joplin_db_name }}"
+
+# Network
+PublishPort=127.0.0.1:22300:22300
+Network=selfhosting.network
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

@@ -1,0 +1,35 @@
+[Unit]
+Description=Nextcloud Productivity Suite
+After=nextcloud-db.service
+Requires=nextcloud-db.service
+
+[Container]
+Image=docker.io/nextcloud:latest
+ContainerName=nextcloud
+AutoUpdate=registry
+
+# Environment variables
+Environment=POSTGRES_HOST=nextcloud-db
+Environment=POSTGRES_DB=nextcloud
+Environment=POSTGRES_USER=nextcloud
+Environment="POSTGRES_PASSWORD={{ nextcloud_db_password }}"
+Environment=NEXTCLOUD_TRUSTED_DOMAINS=cloud.{{ domain }}
+Environment=NEXTCLOUD_DATA_DIR=/var/www/html/data
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/nextcloud:/var/www/html:Z
+Volume=/var/lib/containers/storage/volumes/nextcloud-data:/var/www/html/data:Z
+
+# Network
+PublishPort=127.0.0.1:8083:80
+Network=selfhosting.network
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target default.target

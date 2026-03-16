@@ -1,0 +1,9 @@
+---
+all:
+  children:
+    vps:
+      hosts:
+        selfhosting:
+          ansible_host: YOUR_SERVER_IP
+          ansible_user: root
+          ansible_python_interpreter: /usr/bin/python3

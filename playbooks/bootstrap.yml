@@ -1,0 +1,57 @@
+---
+- name: Bootstrap VPS Infrastructure
+  hosts: selfhosting
+  become: yes
+  vars_files:
+    - ../vars/config.yml
+    - ../vars/secrets.yml
+  
+  pre_tasks:
+    - name: Update DNF cache
+      dnf:
+        update_cache: yes
+      tags: always
+
+
+  roles:
+    - role: common
+      tags: common
+    
+    - role: firewalld
+      tags: firewall
+    
+    - role: wireguard
+      tags: wireguard
+    
+    - role: podman
+      tags: podman
+    
+    - role: nginx
+      tags: nginx
+    
+    - role: services
+      tags: services
+  
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ==========================================
+          VPS Infrastructure Deployment Complete!
+          ==========================================
+          
+          Services deployed:
+            - Joplin Server: https://notes.{{ domain }}
+            - qBittorrent: https://torrent.{{ domain }}
+            - Jellyfin: https://media.{{ domain }}
+            - Nextcloud: https://cloud.{{ domain }}
+            - n8n: https://automation.{{ domain }}
+          
+          Next steps:
+            1. Complete Nextcloud setup wizard at https://cloud.{{ domain }}
+            2. Login to Joplin Server and change default password
+            3. Set up n8n workflows at https://automation.{{ domain }}
+            4. Add media to {{ volumes.jellyfin_media }}
+          
+          ==========================================
+      tags: always

@@ -1,0 +1,41 @@
+---
+- name: Start and enable selfhosting network
+  systemd:
+    name: selfhosting-network.service
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Start and enable container services
+  systemd:
+    name: "{{ item.1 }}"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  loop: "{{ services | selectattr('enabled') | list | subelements('systemd') }}"
+  loop_control:
+    label: "{{ item.1 }}"
+  ignore_errors: yes  # Some may fail on first run until secrets are properly configured
+
+- name: Wait for services to be healthy
+  wait_for:
+    port: "{{ item.health_port }}"
+    host: 127.0.0.1
+    timeout: 60
+  loop: "{{ services | selectattr('enabled') | selectattr('health_port', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  ignore_errors: yes
+
+- name: Display service status
+  command: systemctl status {{ item.1 }} --no-pager
+  loop: "{{ services | selectattr('enabled') | list | subelements('systemd') }}"
+  loop_control:
+    label: "{{ item.1 }}"
+  register: service_status
+  ignore_errors: yes
+
+- name: Show service status
+  debug:
+    var: service_status
+    verbosity: 1

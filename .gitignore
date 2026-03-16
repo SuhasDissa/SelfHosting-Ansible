@@ -1,0 +1,47 @@
+# Ansible
+*.retry
+.vault_pass
+.vault_password
+vault_password.txt
+.ansible_facts/
+inventory/hosts.yml
+
+# Secrets (but allow templates)
+vars/secrets.yml
+.vault_pass*
+
+# Local overrides
+local.yml
+override.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Terraform (if added later)
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Backup files
+*.bak
+*.backup

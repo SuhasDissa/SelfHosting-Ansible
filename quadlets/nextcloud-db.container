@@ -1,0 +1,31 @@
+[Unit]
+Description=PostgreSQL Database for Nextcloud
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/postgres:15-alpine
+ContainerName=nextcloud-db
+AutoUpdate=registry
+
+# Environment variables
+Environment=POSTGRES_DB=nextcloud
+Environment=POSTGRES_USER=nextcloud
+Environment="POSTGRES_PASSWORD={{ nextcloud_db_password }}"
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/nextcloud-db:/var/lib/postgresql/data:Z
+
+# Network
+PublishPort=127.0.0.1:5434:5432
+Network=selfhosting.network
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

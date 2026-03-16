@@ -1,0 +1,31 @@
+[Unit]
+Description=HedgeDoc Database (PostgreSQL)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/library/postgres:15-alpine
+ContainerName=hedgedoc-db
+AutoUpdate=registry
+
+# Environment variables
+Environment=POSTGRES_DB=hedgedoc
+Environment="POSTGRES_USER={{ hedgedoc_db_user }}"
+Environment="POSTGRES_PASSWORD={{ hedgedoc_db_password }}"
+Environment=TZ=Asia/Kolkata
+
+# Volumes
+Volume=/var/lib/containers/storage/volumes/hedgedoc-db:/var/lib/postgresql/data:Z
+
+# Network
+Network=selfhosting.network
+
+# Security
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

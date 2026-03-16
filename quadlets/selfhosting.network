@@ -1,0 +1,5 @@
+[Network]
+NetworkName=selfhosting
+
+[Install]
+WantedBy=multi-user.target default.target

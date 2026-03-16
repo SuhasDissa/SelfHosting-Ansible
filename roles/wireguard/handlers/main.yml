@@ -1,0 +1,10 @@
+---
+- name: Restart WireGuard
+  systemd:
+    name: wg-quick@wg0
+    state: restarted
+
+- name: Reload WireGuard
+  command: wg syncconf wg0 <(wg-quick strip wg0)
+  args:
+    executable: /bin/bash

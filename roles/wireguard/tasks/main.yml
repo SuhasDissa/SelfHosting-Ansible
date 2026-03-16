@@ -1,0 +1,64 @@
+---
+- name: Install WireGuard packages
+  dnf:
+    name:
+      - wireguard-tools
+      - iptables
+      - iproute
+    state: present
+
+- name: Enable IP forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Create WireGuard configuration directory
+  file:
+    path: /etc/wireguard
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+
+- name: Deploy WireGuard configuration
+  template:
+    src: wg0.conf.j2
+    dest: /etc/wireguard/wg0.conf
+    mode: '0600'
+    owner: root
+    group: root
+  notify: Restart WireGuard
+
+- name: Enable WireGuard service
+  systemd:
+    name: wg-quick@wg0
+    enabled: yes
+    daemon_reload: yes
+
+- name: Start WireGuard service
+  systemd:
+    name: wg-quick@wg0
+    state: started
+  register: wg_start
+  ignore_errors: yes
+
+- name: Create custom routing table for VPN
+  lineinfile:
+    path: /etc/iproute2/rt_tables
+    line: '200 vpn'
+    create: yes
+  when: wireguard_selective_routing | default(true)
+
+- name: Display WireGuard status
+  command: wg show
+  register: wg_status
+  changed_when: false
+  ignore_errors: yes
+
+- name: Show WireGuard connection info
+  debug:
+    msg: "{{ wg_status.stdout_lines }}"
+  when: wg_status.stdout_lines is defined

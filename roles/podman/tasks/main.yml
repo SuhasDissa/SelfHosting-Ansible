@@ -1,0 +1,65 @@
+---
+- name: Install Podman and dependencies
+  dnf:
+    name:
+      - podman
+      - podman-docker  # Docker compatibility
+      - container-tools
+      - slirp4netns  # For rootless networking
+      - fuse-overlayfs  # For rootless storage
+    state: present
+
+- name: Enable Podman socket for systemd
+  systemd:
+    name: podman.socket
+    state: started
+    enabled: yes
+
+- name: Create volume directories
+  file:
+    path: "{{ volumes.base }}/{{ item.1.name }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ services | selectattr('enabled') | list | subelements('volumes') }}"
+  loop_control:
+    label: "{{ item.1.name }}"
+
+- name: Set custom volume ownership
+  file:
+    path: "{{ volumes.base }}/{{ item.1.name }}"
+    owner: "{{ item.1.owner }}"
+    group: "{{ item.1.owner }}"
+    state: directory
+  loop: "{{ services | selectattr('enabled') | list | subelements('volumes') }}"
+  loop_control:
+    label: "{{ item.1.name }}"
+  when: item.1.owner is defined
+
+- name: Create systemd Quadlets directory
+  file:
+    path: /etc/containers/systemd
+    state: directory
+    mode: '0755'
+
+- name: Deploy Quadlet files
+  template:
+    src: "../../../quadlets/{{ item.1 }}"
+    dest: "/etc/containers/systemd/{{ item.1 }}"
+    mode: '0644'
+  loop: "{{ services | selectattr('enabled') | list | subelements('quadlets') }}"
+  loop_control:
+    label: "{{ item.1 }}"
+  notify: Reload systemd daemon
+
+- name: Deploy network Quadlet
+  copy:
+    src: "../../../quadlets/selfhosting.network"
+    dest: /etc/containers/systemd/selfhosting.network
+    mode: '0644'
+  notify: Reload systemd daemon
+
+- name: Enable Podman auto-update timer
+  systemd:
+    name: podman-auto-update.timer
+    state: started
+    enabled: yes
