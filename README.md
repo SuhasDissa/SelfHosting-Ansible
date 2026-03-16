@@ -1,233 +1,204 @@
-# VPS Self-Hosting Infrastructure
+# Self-Hosting Infrastructure
 
-Declarative infrastructure-as-code for bootstrapping a Rocky Linux VPS with self-hosted services using Ansible, Podman Quadlets, and Nginx reverse proxy.
+Declarative infrastructure-as-code for a Rocky Linux VPS using Ansible, Podman Quadlets, and Nginx.
 
-## 🏗️ Architecture
+## Architecture
 
-All services run as rootless Podman containers managed by systemd Quadlets. Nginx acts as a reverse proxy with automated SSL/TLS certificates from Let's Encrypt. Firewalld restricts external access to only ports 80 and 443.
+All services run as rootless Podman containers managed by systemd Quadlets. Nginx acts as a reverse proxy with automated Let's Encrypt SSL. Firewalld restricts external access to ports 80, 443, and 51413 (torrents) only. A WireGuard VPN provides direct access to the server.
 
 ### Services
 
-| Service | Subdomain | Purpose | Port (Internal) |
-|---------|-----------|---------|-----------------|
-| Joplin Server | notes.<your-domain> | Note-taking and sync | 22300 |
-| FreshRSS | rss.<your-domain> | RSS feed reader | 80 |
-| Full-Text-RSS | ftr.<your-domain> | Full article extraction | 80 |
-| Transmission | torrent.<your-domain> | Torrent client | 9091 |
-| Jellyfin | media.<your-domain> | Media streaming | 8096 |
-| Nextcloud | cloud.<your-domain> | Calendar, tasks, files | 80 |
-| n8n | automation.<your-domain> | Workflow automation | 5678 |
+| Service | Subdomain | Purpose | Internal Port |
+|---------|-----------|---------|---------------|
+| Joplin Server | `notes.<your-domain>` | Note-taking and sync | 22300 |
+| Jellyfin | `media.<your-domain>` | Media streaming | 8096 |
+| Nextcloud | `cloud.<your-domain>` | Files, calendar, tasks | 8083 |
+| n8n | `automation.<your-domain>` | Workflow automation | 5678 |
+| HedgeDoc | `docs.<your-domain>` | Collaborative markdown | 3000 |
+| Transmission | `torrent.<your-domain>` | Torrent client | 8082 |
+| Evolution API | *(no vhost)* | WhatsApp API | 8080 |
 
-## 📋 Prerequisites
+Each service can be individually enabled or disabled — see [Enabling / Disabling Services](#enabling--disabling-services).
 
-### DNS Records
-Create A records pointing to your server IP (<your-server-ip>):
+## Prerequisites
+
+- Ansible 2.9+ and `ansible-vault` on your local machine
+- SSH key access to the server (`ssh-copy-id root@<server>`)
+- DNS A records pointing to your server IP:
+
 ```
 notes.<your-domain>       → <your-server-ip>
-rss.<your-domain>         → <your-server-ip>
-ftr.<your-domain>         → <your-server-ip>
-torrent.<your-domain>     → <your-server-ip>
 media.<your-domain>       → <your-server-ip>
 cloud.<your-domain>       → <your-server-ip>
 automation.<your-domain>  → <your-server-ip>
+docs.<your-domain>        → <your-server-ip>
+torrent.<your-domain>     → <your-server-ip>
 ```
 
-### Local Setup
-- Ansible 2.9+ installed
-- SSH key access to the server
-- Python 3.8+ on the control machine
+## First-Time Setup
 
-## 🚀 Initial Deployment
+### 1. Configure inventory
 
-### 1. Configure Secrets
-Create and encrypt the secrets file:
 ```bash
-ansible-vault create vars/secrets.yml
+cp inventory/hosts.example.yml inventory/hosts.yml
 ```
 
-Add the following content (replace with your own values):
-```yaml
-# Database passwords
-nextcloud_db_password: "your-secure-password"
+Edit `inventory/hosts.yml` and set your server IP.
 
-# Joplin database credentials
-joplin_db_user: "joplin"
-joplin_db_password: "your-secure-password"
-joplin_db_name: "joplin"
+### 2. Configure secrets
 
-# SSL certificate email
-certbot_email: "your-email@example.com"
-```
-
-### 2. Review Configuration
-Edit `vars/config.yml` to adjust any non-sensitive settings (paths, ports, etc.)
-
-### 3. Test Connection
 ```bash
-ansible all -m ping -i inventory/hosts.yml
+cp vars/secrets-template.yml vars/secrets.yml
+# Edit vars/secrets.yml — fill in all values including domain, passwords, WireGuard keys
+ansible-vault encrypt vars/secrets.yml
 ```
 
-### 4. Deploy
-Run the bootstrap playbook:
+See `vars/secrets-template.yml` for all required fields.
+
+### 3. Deploy
+
 ```bash
+make deploy
+```
+
+Or step by step:
+
+```bash
+make check          # test SSH connectivity first
 ./scripts/deploy.sh
 ```
 
-Or manually:
-```bash
-ansible-playbook -i inventory/hosts.yml playbooks/bootstrap.yml --ask-vault-pass
+## Enabling / Disabling Services
+
+Edit the `services` list in `vars/config.yml` and set `enabled: true/false`:
+
+```yaml
+services:
+  - name: hedgedoc
+    enabled: false   # skips quadlet deploy, volumes, nginx, and SSL cert
+    ...
 ```
 
-### 5. Post-Deployment
-After successful deployment:
-- Access each service via its subdomain (HTTPS)
-- Complete service-specific setup (e.g., Nextcloud wizard, n8n credentials)
-- Configure Joplin desktop/mobile apps with `https://notes.<your-domain>`
+Re-run `make deploy` to apply.
 
-## 🔧 Management
+## Management
 
-### Update a Service
-1. Edit the Quadlet file in `quadlets/`
-2. Run the deployment:
+### Run only a specific role
+
 ```bash
-ansible-playbook -i inventory/hosts.yml playbooks/bootstrap.yml --tags=services --ask-vault-pass
+ansible-playbook -i inventory/hosts.yml playbooks/bootstrap.yml --tags podman
+ansible-playbook -i inventory/hosts.yml playbooks/bootstrap.yml --tags nginx
+ansible-playbook -i inventory/hosts.yml playbooks/bootstrap.yml --tags services
 ```
 
-### Add a New Service
-1. Create Quadlet file in `quadlets/`
-2. Create Nginx site config in `nginx/sites/`
-3. Add subdomain to `vars/config.yml`
-4. Update firewalld rules if needed in `roles/firewalld/tasks/main.yml`
-5. Deploy
+### Edit secrets
 
-### View Service Logs
-SSH into the server and use systemd:
+```bash
+ansible-vault edit vars/secrets.yml
+```
+
+### View service logs
+
 ```bash
 journalctl -u joplin.service -f
-journalctl -u miniflux.service -f
+journalctl -u hedgedoc.service -f
 # etc.
 ```
 
-### Restart a Service
+### Restart a service
+
 ```bash
-systemctl restart joplin.service
+systemctl restart nextcloud.service
 ```
 
-## 💾 Backup & Restore
+### Update all container images
+
+Podman auto-update runs on a systemd timer. To trigger it manually:
+
+```bash
+podman auto-update
+```
+
+## Backup & Restore
 
 ### Backup
-Run the backup script:
+
 ```bash
-ssh root@<your-server-ip> '/opt/selfhosting/backup.sh'
+make backup
 ```
 
-This creates backups in `/var/backups/selfhosting/`
+Backups are stored at `/var/backups/selfhosting/` on the server (7-day retention).
 
 ### Restore
-1. Copy backup to server
-2. Extract to appropriate volume locations
-3. Restart services
 
-## 🔒 Security
+1. Copy backup archive to the server
+2. Extract to the appropriate volume path under `/var/lib/containers/storage/volumes/`
+3. `systemctl restart <service>.service`
 
-- **Firewalld**: Only ports 80/443 exposed externally
+## Security
+
+- **Firewalld**: Only ports 80, 443, and 51413 exposed externally
+- **WireGuard**: VPN for direct server access without exposing extra ports
 - **SSL/TLS**: Automated Let's Encrypt certificates with auto-renewal
-- **Fail2ban**: Protects against brute-force attacks
-- **Rootless Podman**: Services run without root privileges
-- **Ansible Vault**: Sensitive data encrypted at rest
+- **Fail2ban**: Brute-force protection
+- **Rootless Podman**: Containers run without root privileges
+- **Ansible Vault**: All secrets (domain, passwords, keys) encrypted at rest
+- **No plaintext secrets in git**: `inventory/hosts.yml` and `vars/secrets.yml` are gitignored
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-### Service Won't Start
+### Service won't start
+
 ```bash
-# Check service status
-systemctl status service-name.service
+systemctl status <service>.service
+journalctl -u <service>.service -n 50
 
-# View logs
-journalctl -u service-name.service -n 50
-
-# Verify Quadlet syntax
-podman-system-service --dry-run
+# If quadlet wasn't deployed (unit not found):
+systemctl daemon-reload
+systemctl start <service>.service
 ```
 
-### SSL Certificate Issues
+### SSL certificate issues
+
 ```bash
-# Manually request certificate
-certbot --nginx -d subdomain.<your-domain>
-
-# Check certificate expiry
-certbot certificates
-
-# Force renewal
-certbot renew --force-renewal
+certbot --nginx -d subdomain.<your-domain>   # manually request
+certbot certificates                          # check expiry
+certbot renew --force-renewal                 # force renewal
 ```
 
-### Nginx Configuration Test
+### Nginx
+
 ```bash
 nginx -t
 systemctl reload nginx
 ```
 
-### Firewall Debugging
+### Firewall
+
 ```bash
-# List all rules
 firewall-cmd --list-all
-
-# Check if port is open
-firewall-cmd --query-port=443/tcp
-
-# Reload firewall
 firewall-cmd --reload
 ```
 
-### Container Networking
+### Container networking
+
 ```bash
-# List containers
 podman ps -a
-
-# Inspect container
-podman inspect container-name
-
-# Check if port is listening
-ss -tlnp | grep 8080
+podman logs <container-name>
+ss -tlnp | grep <port>
 ```
 
-## 📁 Directory Structure
+## Adding a New Service
 
-```
-/var/lib/containers/storage/volumes/  # Podman volumes
-├── joplin/
-├── joplin-db/
-├── miniflux-db/
-├── qbittorrent-config/
-├── qbittorrent-downloads/
-├── jellyfin-config/
-├── jellyfin-media/
-├── nextcloud/
-├── nextcloud-db/
-└── n8n/
-```
+1. Create `quadlets/<name>.container`
+2. Add a service entry to `vars/config.yml` → `services:`
+3. If web-facing: create `roles/nginx/templates/<subdomain>.conf.j2`
+4. If secrets needed: add to `vars/secrets-template.yml` and `ansible-vault edit vars/secrets.yml`
+5. `make deploy`
 
-## 🔄 Updates
+## Resources
 
-### Update All Containers
-```bash
-# SSH to server
-ssh root@<your-server-ip>
-
-# Pull latest images and restart
-for service in joplin joplin-db miniflux qbittorrent jellyfin nextcloud n8n; do
-    systemctl restart ${service}.service
-done
-```
-
-## 📚 Resources
-
-- [Podman Quadlets Documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
+- [Podman Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
 - [Ansible Documentation](https://docs.ansible.com/)
-- [Rocky Linux Firewalld Guide](https://docs.rockylinux.org/guides/security/firewalld/)
 - [Certbot Documentation](https://eff-certbot.readthedocs.io/)
-
-## 📝 License
-
-MIT License - Feel free to use and modify for your own infrastructure.
+- [Rocky Linux Firewalld Guide](https://docs.rockylinux.org/guides/security/firewalld/)
